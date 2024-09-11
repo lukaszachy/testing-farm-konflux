@@ -1,0 +1,28 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: tf-pre-process
+spec:
+  description: >-
+    Task to deduce PULL_SECRET_NAME unless it is explicitly provided.
+  params:
+    - name: PULL_SECRET_NAME
+      description: Explicit name of pull secret to use, detected by app/comp name otherwise
+      default: ""
+  results:
+    - name: pull-secret-name
+  steps:
+    - name: tf-pre-process
+      image: quay.io/lzachar/tf-in-konflux:latest
+      env:
+        - name: APPLICATION
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['appstudio.openshift.io/application']
+        - name: COMPONENT
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['appstudio.openshift.io/component']
+        - name: PULL_SECRET_NAME_RESULT_PATH
+          value: $(results.pull-secret-name.path)
+      script: bash -v /usr/local/bin/tf-pre-process.sh

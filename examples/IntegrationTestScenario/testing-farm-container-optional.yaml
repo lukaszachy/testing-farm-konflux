@@ -1,0 +1,25 @@
+apiVersion: appstudio.redhat.com/v1beta2
+kind: IntegrationTestScenario
+metadata:
+  labels:
+    test.appstudio.openshift.io/optional: "true"
+  name: APPLICATION-GOOD_NAME
+spec:
+  application: APPLICATION
+  contexts:
+  - name: component_COMPONENT_1_NAME
+  - name: component_COMPONENT_2_NAME
+  params:
+  - name: COMPOSE
+    value: RHEL-9-Nightly
+  - name: ARCH
+    value: x86_64
+  resolverRef:
+    params:
+    - name: url
+      value: https://github.com/lukaszachy/testing-farm-konflux
+    - name: revision
+      value: main
+    - name: pathInRepo
+      value: pipelines/testing-farm-container.yaml
+    resolver: git

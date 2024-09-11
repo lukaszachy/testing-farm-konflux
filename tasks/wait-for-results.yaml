@@ -1,0 +1,25 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: tf-pre-process
+spec:
+  description: >-
+    Task waits until results are ready and sets TEST_OUTPUT.
+  params:
+    - name: TF_REQUEST
+  results:
+    - description: Link to the Testing Farm result overview
+      name: ARTIFACTS_URL
+    - description: Test outcome
+      name: TEST_OUTPUT
+  steps:
+    - name: wait-for-results
+      image: quay.io/lzachar/tf-in-konflux:latest
+      env:
+        - name: TF_REQUEST
+          value: $(params.TF_REQUEST)
+        - name: ARTIFACTS_URL_RESULT_PATH
+          value: $(results.ARTIFACTS_URL.path)
+        - name: TEST_OUTPUT_RESULT_PATH
+          value: $(results.TEST_OUTPUT.path)
+      script: bash -v /usr/local/bin/tf-wait-for-results.sh

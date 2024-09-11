@@ -1,0 +1,150 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: tmt-via-testing-farm
+spec:
+  description: >-
+
+    Pipeline to test the container image using Testing Farm. It consists of tasks:
+
+    1. Task "pre-process" creates the default value for 'PULL_SECRET_NAME'
+    2. Task "scheduler" detects requests Testing farm to test just the modified component
+       and is responsible to set all parameters requires to do so (pull secret value, image url...)
+       Creates result REQUEST_URL with the link to the testing farm.
+    3. Task "wait-for-results" waits until Testing farm finishes with the request and parses the output.
+       Sets the final TEST_OUTPUT result as well as ARTIFACTS_URL to the overview of the test result.
+    4. Task "result" fails the pipeline if testing didn't pass. This is just to easier spot failing ITS
+       as Konflux doesn't show the result directly and instead shows the 'success' of the pipeline.
+
+    Secret to create:
+      Key/value with key `testing-farm-token` containing the testing-farm API token.
+      Provide name of this secret as `TESTING_FARM_TOKEN_SECRET_NAME` parameter.
+      In shared workspace this secret might me already present.
+
+    Required parameters:
+      `SNAPSHOT` which is provided by the pipeline automatically
+
+    Important parameters:
+      `PULL_SECRET_NAME` name of the 'Image pull' secret (typekubernetes.io/dockerconfigjson).
+        If not set the name  "imagerepository-for-${APPLICATION}-${COMPONENT}-image-pull" is used
+
+      TESTING_FARM_TOKEN_SECRET_NAME name of secret containing the testing-farm API token
+        If not set the name "testing-farm-secret" is used.
+
+  params:
+    - name: SNAPSHOT
+      description: A list of container images that should undergo testing
+    - name: PULL_SECRET_NAME
+      description: Explicit name of pull secret to use, detected by app/comp name otherwise
+      default: ""
+    - name: TESTING_FARM_TOKEN_SECRET_NAME
+      default: "testing-farm-secret"
+      description: Name of the Key/Value secret with testing-farm-token key
+    - name: GIT_URL
+      default: ""
+      description: URL of the GIT repository that contains the tests.
+    - name: TMT_PLAN
+      default: "."
+      description: Name filter for plans defined in the repo.
+    - name: GIT_REF
+      default: ""
+      description: Branch of the git repository used containing the tests
+    - name: COMPOSE
+      default: "Fedora-40"
+      description: Compose to use for the system-under-test.
+    - name: ARCH
+      default: "x86_64"
+      description: Comma-separated list of architectures to run against.
+    - name: TIMEOUT
+      default: "720"
+      description: Set the timeout for the request in minutes. If the test takes longer than this, it will be terminated.
+    - name: TESTING_FARM_API_URL
+      default: https://api.dev.testing-farm.io/v0.1
+      description: The testing-farm instance API to use
+  results:
+    - name: REQUEST_URL
+      value: "$(tasks.scheduler.results.tf-request)"
+    - name: ARTIFACTS_URL
+      value: "$(tasks.wait-for-results.results.ARTIFACTS_URL)"
+    - name: TEST_OUTPUT
+      value: "$(tasks.wait-for-results.results.TEST_OUTPUT)"
+  tasks:
+    - name: pre-process
+      timeout: "5m"
+      taskRef:
+        resolver: git
+        params:
+          - name: url
+            value: https://github.com/lukaszachy/testing-farm-konflux
+          - name: revision
+            value: main
+          - name: pathInRepo
+            value: tasks/pre-process.yaml
+      params:
+        - name: SNAPSHOT
+          value: $(params.SNAPSHOT)
+    - name: scheduler
+      runAfter:
+        - pre-process
+      timeout: "5m"
+      taskRef:
+        resolver: git
+        params:
+          - name: url
+            value: https://github.com/lukaszachy/testing-farm-konflux
+          - name: revision
+            value: main
+          - name: pathInRepo
+            value: tasks/scheduler.yaml
+      params:
+        - name: PULL_SECRET_NAME
+          value: "$(tasks.pre-process.results.pull-secret-name)"
+        - name: TESTING_FARM_TOKEN_SECRET_NAME
+          value: "$(params.TESTING_FARM_TOKEN_SECRET_NAME)"
+        - name: SNAPSHOT
+          value: $(params.SNAPSHOT)
+        - name: GIT_URL
+          value: $(params.GIT_URL)
+        - name: TMT_PLAN
+          value: $(params.TMT_PLAN)
+        - name: GIT_REF
+          value: $(params.GIT_REF)
+        - name: COMPOSE
+          value: $(params.COMPOSE)
+        - name: ARCH
+          value: $(params.ARCH)
+        - name: TIMEOUT
+          value: $(params.TIMEOUT)
+        - name: TESTING_FARM_API_URL
+          value: $(params.TESTING_FARM_API_URL)
+    - name: wait-for-results
+      runAfter:
+        - scheduler
+      timeout: "5h"
+      taskRef:
+        resolver: git
+        params:
+          - name: url
+            value: https://github.com/lukaszachy/testing-farm-konflux
+          - name: revision
+            value: main
+          - name: pathInRepo
+            value: tasks/wait-for-results.yaml
+      params:
+        - name: TF_REQUEST
+          value: "$(tasks.scheduler.results.tf-request)"
+    - name: result
+      runAfter:
+        - wait-for-results
+      taskRef:
+        resolver: git
+        params:
+          - name: url
+            value: https://github.com/lukaszachy/testing-farm-konflux
+          - name: revision
+            value: main
+          - name: pathInRepo
+            value: tasks/result.yaml
+      params:
+        - name: PRODUCED_TEST_OUTPUT
+          value: "$(tasks.wait-for-results.results.TEST_OUTPUT)"

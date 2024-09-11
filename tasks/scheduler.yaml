@@ -1,0 +1,92 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: tf-scheduler
+spec:
+  description: >-
+
+    Run tmt plan via Testing Farm.
+  params:
+    - name: PULL_SECRET_NAME
+    - name: TESTING_FARM_TOKEN_SECRET_NAME
+    - name: SNAPSHOT
+    - name: GIT_URL
+      default: ""
+      description: URL of the GIT repository that contains the tests.
+    - name: TMT_PLAN
+      default: "."
+      description: Name filter for plans defined in the repo.
+    - name: GIT_REF
+      default: ""
+      description: Branch of the git repository used containing the tests
+    - name: COMPOSE
+      default: "Fedora-40"
+      description: Compose to use for the system-under-test.
+    - name: ARCH
+      default: "x86_64"
+      description: Comma-separated list of architectures to run against.
+    - name: TIMEOUT
+      default: "720"
+      description: Set the timeout for the request in minutes. If the test takes longer than this, it will be terminated.
+    - name: TESTING_FARM_API_URL
+      default: https://api.dev.testing-farm.io/v0.1
+      description: The testing-farm instance API to use
+  volumes:
+    - name: pull-secret-volume
+      secret:
+        secretName: "$(params.PULL_SECRET_NAME)"
+    - name: testing-farm-secret
+      secret:
+        secretName: "$(params.TESTING_FARM_TOKEN_SECRET_NAME)"
+  results:
+    - name: tf-request
+  steps:
+    - name: scheduler
+      image: quay.io/lzachar/tf-in-konflux:latest
+      volumeMounts:
+        - name: pull-secret-volume
+          mountPath: "/etc/secrets/pull-secret-volume"
+          readOnly: true
+        - name: testing-farm-secret
+          mountPath: "/etc/secrets/testing-farm-secret"
+          readOnly: true
+      env:
+        - name: SNAPSHOT
+          value: $(params.SNAPSHOT)
+        - name: GIT_URL
+          value: $(params.GIT_URL)
+        - name: GIT_REF
+          value: $(params.GIT_REF)
+        - name: COMPOSE
+          value: $(params.COMPOSE)
+        - name: ARCH
+          value: $(params.ARCH)
+        - name: TIMEOUT
+          value: $(params.TIMEOUT)
+        - name: TESTING_FARM_API_URL
+          value: $(params.TESTING_FARM_API_URL)
+        - name: TMT_PLAN
+          value: $(params.TMT_PLAN)
+        - name: PULL_REQUEST_NUMBER
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.annotations['pac.test.appstudio.openshift.io/pull-request']
+        - name: GIT_PROVIDER
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.annotations['pac.test.appstudio.openshift.io/git-provider']
+        - name: SNAPSHOT_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['appstudio.openshift.io/snapshot']
+        - name: INTEGRATION_TEST_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['test.appstudio.openshift.io/scenario']
+        - name: COMPONENT
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['appstudio.openshift.io/component']
+        - name: TF_REQUEST_RESULT_PATH
+          value: $(results.tf-request.path)
+      script: bash -v /usr/local/bin/tf-scheduler.sh

@@ -1,0 +1,33 @@
+# This is the only required key in the tmt Plan
+# NOTE: There has to be .fmf/version file present in the git root, run `tmt init` there
+#       without that file this won't be detected by testing farm a Plan
+execute:
+    how: tmt
+
+# If host (where test runs) and container OS don't match this key is 
+# necessary to request machine which can run the container OS
+# For example: Running ubi9 container on rhel-8 host
+provision:
+    hardware:
+        compatible:
+            distro:
+                - "rhel9"
+
+# Here is the definition of what should be run as a test
+discover:
+    - how: shell
+      tests:
+      - name: Functional tests
+        test: ./test/run
+        keep-git-metadata: true
+        duration: 2h
+        require:
+        - git-core
+        - podman-docker
+        - podman
+
+# This playbook takes care of setting up the auth-file for podman and pulling the image
+prepare:
+    - how: ansible
+      playbook: https://github.com/lukaszachy/testing-farm-konflux/raw/main/tmt/prepare/setup.yaml
+      extra_args: "-e TMT_PLAN_ENVIRONMENT_FILE=$TMT_PLAN_ENVIRONMENT_FILE -e AUTHFILE_b64=$AUTHFILE_b64 -e IMAGE_URL=$IMAGE_URL -e IMAGE_NAME=$IMAGE_NAME"      
