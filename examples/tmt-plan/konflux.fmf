@@ -7,11 +7,12 @@ execute:
 # If host (where test runs) and container OS don't match this key is 
 # necessary to request machine which can run the container OS
 # For example: Running ubi9 container on rhel-8 host
+# NOTE: Use distro names with dash (rhel-X) instead of rhelX
 provision:
     hardware:
         compatible:
             distro:
-                - "rhel9"
+                - "rhel-9"
 
 # Here is the definition of what should be run as a test
 discover:
