@@ -66,6 +66,7 @@ testing-farm request \
     --compose "${COMPOSE}" \
     --arch "${ARCH}" \
     --timeout "${TIMEOUT}" \
+    --tag ArtemisUseSpot=false \
     --no-wait |& tee $tf_log
 
 request_url=$(grep -oE "${TESTING_FARM_API_URL}.*$" $tf_log)
