@@ -19,7 +19,7 @@ f_test_output = sys.argv[3]
 # Report the URL to artifacts
 artifacts = request['run']['artifacts']
 if artifacts:
-    write(artifacts, f_artifacts_url) 
+    write(artifacts, f_artifacts_url)
 
 
 # Process the results..
@@ -27,12 +27,16 @@ updated_ts = datetime.datetime.fromisoformat(request['updated']).astimezone(date
 test_output = {
     'result': 'ERROR',
     "timestamp": updated_ts.isoformat(),
-    "successes": 0, 
+    "successes": 0,
     "failures": 0,
-    "warnings": 0
+    "warnings": 0,
 }
-    
-state = request['state']    
+
+# Add note so it appears in gitlab comment
+if artifacts:
+    test_output["note"] = artifacts
+
+state = request['state']
 if state != 'complete':
     test_output['note'] = f'TF request finished as {state}'
 try:

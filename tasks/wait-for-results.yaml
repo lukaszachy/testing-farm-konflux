@@ -14,7 +14,7 @@ spec:
       name: TEST_OUTPUT
   steps:
     - name: wait-for-results
-      image: quay.io/lzachar/tf-in-konflux:latest
+      image: quay.io/lzachar/tf-in-konflux:add-note
       env:
         - name: TF_REQUEST
           value: $(params.TF_REQUEST)
