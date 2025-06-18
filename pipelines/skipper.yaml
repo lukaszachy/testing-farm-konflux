@@ -1,0 +1,29 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: skipper
+spec:
+  description: >-
+      Attempt to test skopeo + skips
+  params:
+    - name: SNAPSHOT
+      description: A list of container images that should undergo testing
+  tasks:
+    - name: magic
+      taskSpec:
+        steps:
+        - name: list
+          image: quay.io/konflux-ci/konflux-test:latest
+          env:
+            - name: SNAPSHOT
+              value: $(params.SNAPSHOT)
+            - name: COMPONENT
+              value: "nodejs-20-minimal-8-10"
+          script: |
+            set -x
+            IMAGE=$(echo "${SNAPSHOT}" | jq -r ".components[]|select(.name==\"$COMPONENT\")|.containerImage")
+            skopeo inspect --raw docker://$IMAGE
+      params:
+        - name: SNAPSHOT
+          value: $(params.SNAPSHOT)
+
