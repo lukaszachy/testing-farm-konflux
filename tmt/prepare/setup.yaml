@@ -5,13 +5,28 @@
   gather_facts: false
 
   tasks:
+  # newer ansible doesn't work with python3.6, which is the system python on rhel8
+    - name: Check OS release version
+      ansible.builtin.raw: cat /etc/redhat-release
+      register: release_out
+      changed_when: false
+    - name: Install Python 3.9 on RHEL/CentOS 8 systems
+      ansible.builtin.raw: |
+        dnf -y module enable python39
+        dnf -y install python39
+      args:
+        executable: /bin/bash
+      when: |
+        'Red Hat Enterprise Linux release 8.' in release_out.stdout
+        or 'CentOS Linux release 8' in release_out.stdout
+        or 'CentOS Stream release 8' in release_out.stdout
+      changed_when: false
     - name: Install required packages
-      ansible.builtin.dnf:
-        name:
-          - python3
-          - podman-docker
-          - podman
-        state: latest
+      # avoid dnf module (missing for rhel-8, not really necessary elsewhere)
+      ansible.builtin.raw: |
+        dnf -y install python3 podman-docker podman
+      args:
+        executable: /bin/bash  
     - name: Suppress podman-docker message
       ansible.builtin.file:
         path: /etc/containers/nodocker
